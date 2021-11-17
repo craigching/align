@@ -6,6 +6,94 @@
 #include <algorithm>
 #include <tuple>
 
+template<typename T, int MATCH_COST = 3>
+int match(const T& l, const T& r) {
+    return l == r ? MATCH_COST : -MATCH_COST;
+}
+
+// Implements Smith-Waterman which performs local alignment for two sequences
+template<typename T, int GAP_COST = 2, int MATCH_COST = 3>
+std::tuple<std::vector<T>, std::vector<T>>
+align2(const std::vector<T>& left, const std::vector<T>& right, const T& GAP) {
+
+    const int llen = left.size();
+    const int rlen = right.size();
+    int grid [llen + 1][rlen + 1];
+
+    auto max = 0;
+    auto mi = 0;
+    auto mj = 0;
+
+    for (auto i = 0; i < llen + 1; ++i) {
+        for (auto j = 0; j < rlen + 1; ++j) {
+            if (i == 0 || j == 0) {
+                grid[i][j] = 0;
+            } else {
+                auto h1 = grid[i - 1][j - 1] + match<T, MATCH_COST>(left[i - 1], right[j - 1]);
+                auto h2 = grid[i][j - 1] - GAP_COST;
+                auto h3 = grid[i - 1][j] - GAP_COST;
+                auto m = std::max(0, std::max(h1, std::max(h2, h3)));
+                grid[i][j] = m;
+                if (m > max) {
+                    max = m;
+                    mi = i;
+                    mj = j;
+                }
+            }
+            std::cout << grid[i][j];
+            if (grid[i][j] < 10) {
+                std::cout << "  ";
+            } else {
+                std::cout << " ";
+            }
+        }
+        std::cout << "\n";
+    }
+
+    std::vector<T> leftOut;
+    std::vector<T> rightOut;
+
+    auto shouldContinue = true;
+    while (shouldContinue) {
+
+        std::cout << "mi: " << mi << ", mj: " << mj << ", grid: " << grid[mi][mj] << std::endl;
+
+        auto h1 = grid[mi][mj - 1];
+        auto h2 = grid[mi - 1][mj - 1];
+        auto h3 = grid[mi - 1][mj];
+
+        if (h2 == 0) {
+            leftOut.push_back(left[mi - 1]);
+            rightOut.push_back(right[mj - 1]);
+            mi -= 1;
+            mj -= 1;
+        } else if (h1 >= h2 && h1 >= h3) {
+            leftOut.push_back(GAP);
+            rightOut.push_back(right[mj - 1]);
+            mj -= 1;
+        } else if (h2 >= h1 && h2 >= h3) {
+            leftOut.push_back(left[mi - 1]);
+            rightOut.push_back(right[mj - 1]);
+            mi -= 1;
+            mj -= 1;
+        } else if (h3 >= h1 && h3 >= h2) {
+            leftOut.push_back(left[mi - 1]);
+            rightOut.push_back(GAP);
+            mi -= 1;
+        }
+
+        if (h2 == 0) {
+            shouldContinue = false;
+        }
+    }
+
+    std::reverse(leftOut.begin(), leftOut.end());
+    std::reverse(rightOut.begin(), rightOut.end());
+
+    return std::make_tuple(leftOut, rightOut);
+}
+
+// Implements Needleman-Wunsch which performs global alignment for two sequences
 template<typename T, int GAP_COST = -2, int MATCH_COST = 3>
 std::tuple<std::vector<T>, std::vector<T>>
 align(const std::vector<T>& left, const std::vector<T>& right, const T& GAP) {
@@ -84,6 +172,11 @@ align(const std::vector<T>& left, const std::vector<T>& right, const T& GAP) {
 
 std::tuple<std::string, std::string> align(const std::string_view& left, const std::string_view& right) {
     auto [leftOut, rightOut] = align<char>(std::vector<char>{left.begin(), left.end()}, std::vector<char>{right.begin(), right.end()}, '-');
+    return std::make_tuple(std::string{leftOut.begin(), leftOut.end()}, std::string{rightOut.begin(), rightOut.end()});
+}
+
+std::tuple<std::string, std::string> align2(const std::string_view& left, const std::string_view& right) {
+    auto [leftOut, rightOut] = align2<char>(std::vector<char>{left.begin(), left.end()}, std::vector<char>{right.begin(), right.end()}, '-');
     return std::make_tuple(std::string{leftOut.begin(), leftOut.end()}, std::string{rightOut.begin(), rightOut.end()});
 }
 
