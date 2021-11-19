@@ -7,7 +7,7 @@
 #include <tuple>
 
 template<typename T, int MATCH_COST = 3>
-int match(const T& l, const T& r) {
+inline int match(const T& l, const T& r) {
     return l == r ? MATCH_COST : -MATCH_COST;
 }
 
